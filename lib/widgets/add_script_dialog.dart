@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../cubits/settings_cubit.dart';
+import '../utils/responsive.dart'; // Import the responsive helper
 
 class AddScriptDialog extends StatefulWidget {
   @override
@@ -23,10 +25,19 @@ class _AddScriptDialogState extends State<AddScriptDialog> {
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
 
-    if (result != null) {
+    // Ensure the widget is still mounted before calling setState
+    if (result != null && mounted) {
+      String filePath = result.files.single.path ?? '';
+
       setState(() {
-        _pathController.text =
-            result.files.single.path ?? ''; // Set the picked file path
+        // Set the picked file path in the path field
+        _pathController.text = filePath;
+
+        // Extract the file name without the extension
+        String fileName = p.basenameWithoutExtension(filePath);
+
+        // Set the file name in the name field
+        _nameController.text = fileName;
       });
     }
   }
@@ -36,9 +47,9 @@ class _AddScriptDialogState extends State<AddScriptDialog> {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, settingsState) {
         return Dialog(
-          insetPadding: EdgeInsets.symmetric(horizontal: 50), // Adjust width
+          insetPadding: EdgeInsets.symmetric(horizontal: 50), // Adjust padding
           child: Container(
-            width: 400.0, // Set width
+            width: Responsive.getDialogWidth(context), // Set responsive width
             padding: EdgeInsets.all(16.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -75,9 +86,7 @@ class _AddScriptDialogState extends State<AddScriptDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: () => Navigator.pop(context), // Close dialog
                       child: Text(
                         'Cancel',
                         style: TextStyle(fontSize: settingsState.fontSize),
@@ -85,8 +94,10 @@ class _AddScriptDialogState extends State<AddScriptDialog> {
                     ),
                     TextButton(
                       onPressed: () {
+                        // Ensure the widget is still mounted before calling setState
                         if (_nameController.text.isNotEmpty &&
-                            _pathController.text.isNotEmpty) {
+                            _pathController.text.isNotEmpty &&
+                            mounted) {
                           Navigator.pop(context, {
                             'name': _nameController.text,
                             'path': _pathController.text,

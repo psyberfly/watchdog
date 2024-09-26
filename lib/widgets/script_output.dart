@@ -29,12 +29,18 @@ class _ScriptOutputState extends State<ScriptOutput> {
   // Function to run the script and capture its output
   Future<void> _runScript() async {
     try {
+      // Ensure the widget is still mounted before calling setState
+      if (!mounted) return;
+
       setState(() {
         _isRunning = true;
       });
 
       // Run the script using Process.run
       final result = await Process.run(widget.path, []);
+
+      // Ensure the widget is still mounted before calling setState
+      if (!mounted) return;
 
       setState(() {
         _output = result.stdout.toString(); // Capture the script's output
@@ -44,6 +50,9 @@ class _ScriptOutputState extends State<ScriptOutput> {
         _isRunning = false;
       });
     } catch (e) {
+      // Ensure the widget is still mounted before calling setState
+      if (!mounted) return;
+
       setState(() {
         _output = 'Failed to run the script: $e'; // Handle script failure
         _isRunning = false;
@@ -78,11 +87,23 @@ class _ScriptOutputState extends State<ScriptOutput> {
             Positioned(
               top: 10,
               right: 10,
-              child: IconButton(
-                icon: Icon(Icons.delete),
-                color: Colors.redAccent,
-                tooltip: 'Remove Script',
-                onPressed: widget.onDelete, // Handle script deletion
+              child: Row(
+                children: [
+                  // Refresh Button
+                  IconButton(
+                    icon: Icon(Icons.refresh),
+                    color: Colors.blue, // Set refresh button color
+                    tooltip: 'Refresh Script',
+                    onPressed: _runScript, // Re-run the script when clicked
+                  ),
+                  // Remove Button
+                  IconButton(
+                    icon: Icon(Icons.delete),
+                    color: Colors.redAccent,
+                    tooltip: 'Remove Script',
+                    onPressed: widget.onDelete, // Handle script deletion
+                  ),
+                ],
               ),
             ),
           ],

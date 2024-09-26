@@ -66,7 +66,7 @@ class _ScriptRunnerHomeState extends State<ScriptRunnerHome>
         return Scaffold(
           appBar: AppBar(
             title: Text(
-              'Script Runner',
+              'Watchdog',
               style: TextStyle(
                 fontSize: settingsState.fontSize + 10, // Adjust title size
                 fontWeight: FontWeight.bold,
@@ -74,12 +74,14 @@ class _ScriptRunnerHomeState extends State<ScriptRunnerHome>
             ),
             actions: [
               IconButton(
-                icon: Icon(Icons.add, size: 30), // Larger add icon
+                icon: Icon(
+                  Icons.add,
+                ), // Larger add icon
                 onPressed: _addScript,
                 tooltip: 'Add Script',
               ),
               IconButton(
-                icon: Icon(Icons.settings, size: 30), // Larger settings icon
+                icon: Icon(Icons.settings), // Larger settings icon
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -104,6 +106,10 @@ class _ScriptRunnerHomeState extends State<ScriptRunnerHome>
                 )
               : Column(
                   children: [
+                    // Add vertical space between AppBar and TabBar
+                    SizedBox(height: 20), // Adjust this value as needed
+
+                    // TabBar for scripts
                     TabBar(
                       controller: _tabController,
                       isScrollable: true,
