@@ -1,147 +1,124 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../cubits/settings_cubit.dart';
-import '../widgets/add_script_dialog.dart';
-import '../widgets/remove_script_confirmation.dart';
-import '../widgets/script_output.dart';
-import 'settings_page.dart';
+import 'package:intl/intl.dart'; // To format the date
+import 'package:watchdog_app/cubits/settings/settings_cubit.dart';
 
 class ScriptRunnerHome extends StatefulWidget {
   @override
   _ScriptRunnerHomeState createState() => _ScriptRunnerHomeState();
 }
 
-class _ScriptRunnerHomeState extends State<ScriptRunnerHome>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
-  List<Map<String, String>> scripts = [];
+class _ScriptRunnerHomeState extends State<ScriptRunnerHome> {
+  String? selectedScript; // Store the currently selected script
+  String scriptOutput = ''; // Store the output of the script
+  bool isLoading = false; // Track whether a script is currently running
+  Map<String, DateTime> lastRunTimes =
+      {}; // Store the last run times of scripts
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 0, vsync: this);
-  }
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Script Runner'),
+      ),
+      body: Row(
+        children: [
+          // Left side: List of script names with last run date
+          Expanded(
+            flex: 1,
+            child: BlocBuilder<SettingsCubit, SettingsState>(
+              builder: (context, state) {
+                if (state.scripts.isEmpty) {
+                  return Center(
+                    child: Text('No scripts found in the data directory.'),
+                  );
+                }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+                return ListView.builder(
+                  itemCount: state.scripts.length,
+                  itemBuilder: (context, index) {
+                    final scriptData = state.scripts[index];
+                    final scriptPath = scriptData['script']!;
+                    // Extract the parent directory name of script.sh
+                    final scriptName =
+                        Directory(scriptPath).parent.path.split('/').last;
 
-  // Function to add a new script
-  Future<void> _addScript() async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => AddScriptDialog(),
-    );
+                    // Get the last run time (if any) and format it
+                    final lastRunTime = lastRunTimes[scriptName];
+                    String lastRunDisplay = lastRunTime != null
+                        ? DateFormat.yMMMd().add_jm().format(lastRunTime)
+                        : 'Never run';
 
-    if (result != null) {
-      setState(() {
-        scripts.add(result);
-        _tabController = TabController(length: scripts.length, vsync: this);
-      });
-    }
-  }
+                    return ListTile(
+                      title: Text(scriptName),
+                      subtitle: Text('Last run: $lastRunDisplay'),
+                      selected: scriptName ==
+                          selectedScript, // Highlight selected script
+                      onTap: () {
+                        setState(() {
+                          selectedScript = scriptName;
+                          scriptOutput = ''; // Clear the previous output
+                          isLoading = true; // Start loading
+                        });
+                        // Run the script and get the output
+                        _runScript(context, scriptPath, scriptData['env']!,
+                            scriptName);
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
 
-  // Function to remove a script
-  void _removeScript(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => RemoveScriptConfirmation(
-        onConfirm: () {
-          setState(() {
-            scripts.removeAt(index);
-            _tabController = TabController(length: scripts.length, vsync: this);
-          });
-          Navigator.pop(context);
-        },
+          // Right side: Script output display or loader with fixed size
+          Expanded(
+            flex: 2,
+            child: Container(
+              height: double.maxFinite,
+              padding: EdgeInsets.all(16),
+              color: Colors.black,
+              child: SizedBox(
+                height:
+                    400, // Set a fixed height for the output area (adjust as needed)
+                child: isLoading
+                    ? Center(
+                        child:
+                            CircularProgressIndicator()) // Show loader while running
+                    : scriptOutput.isNotEmpty
+                        ? SingleChildScrollView(
+                            child: Text(
+                              scriptOutput,
+                              style: TextStyle(
+                                  color: Colors.white, fontFamily: 'monospace'),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              'Select a script to run.',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<SettingsCubit, SettingsState>(
-      builder: (context, settingsState) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              'Watchdog',
-              style: TextStyle(
-                fontSize: settingsState.fontSize + 10, // Adjust title size
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  Icons.add,
-                ), // Larger add icon
-                onPressed: _addScript,
-                tooltip: 'Add Script',
-              ),
-              IconButton(
-                icon: Icon(Icons.settings), // Larger settings icon
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SettingsPage(),
-                    ),
-                  );
-                },
-                tooltip: 'Settings',
-              ),
-            ],
-          ),
-          body: scripts.isEmpty
-              ? Center(
-                  child: Text(
-                    'No scripts added. Click the + icon to add scripts.',
-                    style: TextStyle(
-                      fontSize: settingsState.fontSize, // Adjust body text size
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              : Column(
-                  children: [
-                    // Add vertical space between AppBar and TabBar
-                    SizedBox(height: 20), // Adjust this value as needed
+  // Function to run the selected script and update the last run time
+  void _runScript(BuildContext context, String scriptPath, String envPath,
+      String scriptName) async {
+    final settingsCubit = context.read<SettingsCubit>();
+    final output = await settingsCubit.runScript(scriptPath, envPath);
 
-                    // TabBar for scripts
-                    TabBar(
-                      controller: _tabController,
-                      isScrollable: true,
-                      tabs: scripts
-                          .map((script) => Tab(
-                                child: Text(
-                                  script['name'] ?? '',
-                                  style: TextStyle(
-                                    fontSize: settingsState
-                                        .fontSize, // Adjust tab font size
-                                  ),
-                                ),
-                              ))
-                          .toList(),
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: scripts.asMap().entries.map((entry) {
-                          int index = entry.key;
-                          Map<String, String> script = entry.value;
-                          return ScriptOutput(
-                            path: script['path'] ?? '',
-                            onDelete: () => _removeScript(index),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ),
-        );
-      },
-    );
+    setState(() {
+      scriptOutput = output; // Update the script output
+      isLoading = false; // Stop loading after the script completes
+      lastRunTimes[scriptName] = DateTime.now(); // Update the last run time
+    });
   }
 }

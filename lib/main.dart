@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'cubits/settings_cubit.dart';
+import 'cubits/settings/settings_cubit.dart';
 import 'screens/script_runner_home.dart';
 
 void main() {
@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => SettingsCubit(),
+      create: (context) => SettingsCubit()..loadScriptsFromDataDir(),
       child: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, settingsState) {
           return MaterialApp(
@@ -23,11 +23,9 @@ class MyApp extends StatelessWidget {
               iconButtonTheme: IconButtonThemeData(
                 style: ButtonStyle(
                   iconSize: const WidgetStatePropertyAll(50),
-                  //padding: WidgetStateProperty.all(EdgeInsets.all(4)),
                   minimumSize: WidgetStateProperty.all(Size(120, 120)),
                 ),
               ),
-              // Set global tooltip theme and font size
               tooltipTheme: TooltipThemeData(
                 textStyle: TextStyle(
                   fontSize: settingsState
